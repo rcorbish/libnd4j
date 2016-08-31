@@ -1411,11 +1411,11 @@ namespace simdOps {
 	template<typename T>
 	class IndexMax  {
 	public:
-		op_def static functions::indexreduce::IndexValue<T> op(functions::indexreduce::IndexValue<T> val, T *extraParams) {
+		static functions::indexreduce::IndexValue<T> op(functions::indexreduce::IndexValue<T> val, T *extraParams) {
 			return val;
 		}
 
-		op_def static functions::indexreduce::IndexValue<T> update(
+		static functions::indexreduce::IndexValue<T> update(
 				functions::indexreduce::IndexValue<T> old,
 				functions::indexreduce::IndexValue<T> opOutput, T *extraParams) {
 			if (opOutput.value > old.value)
@@ -1430,7 +1430,7 @@ namespace simdOps {
 			return old;
 		}
 
-		op_def static functions::indexreduce::IndexValue<T> merge(
+		static functions::indexreduce::IndexValue<T> merge(
 				functions::indexreduce::IndexValue<T> f1,
 				functions::indexreduce::IndexValue<T> f2, T *extraParams) {
 			if (f1.value > f2.value)
@@ -1439,18 +1439,18 @@ namespace simdOps {
 		}
 
 
-		op_def static functions::indexreduce::IndexValue<T> postProcess(
+		static functions::indexreduce::IndexValue<T> postProcess(
 				functions::indexreduce::IndexValue<T> reduction, int n, int xOffset,
 				T *dx, int incx, T *extraParams, T *result) {
 			return reduction;
 		}
 
-		op_def static T startingValue(T *input) {
+		static T startingValue(T *input) {
 			return MIN_FLOAT;
 		}
 
-		op_def static functions::indexreduce::IndexValue<T> op(functions::indexreduce::IndexValue<T> d1,
-				functions::indexreduce::IndexValue<T> d2, T *extraParams) {
+		static functions::indexreduce::IndexValue<T> op(functions::indexreduce::IndexValue<T> d1,
+			functions::indexreduce::IndexValue<T> d2, T *extraParams) {
 			return d1;
 		}
 	};
@@ -1459,16 +1459,16 @@ namespace simdOps {
 	template<typename T>
 	class IndexMin {
 	public:
-		op_def static functions::indexreduce::IndexValue<T> op(
+		static functions::indexreduce::IndexValue<T> op(
 				functions::indexreduce::IndexValue<T> val, T *extraParams) {
 			return val;
 		}
 
-		op_def static T startingValue(T *input) {
+		static T startingValue(T *input) {
 			return MAX_FLOAT;
 		}
 
-		op_def static functions::indexreduce::IndexValue<T> update(
+		static functions::indexreduce::IndexValue<T> update(
 				functions::indexreduce::IndexValue<T> old,
 				functions::indexreduce::IndexValue<T> opOutput, T *extraParams) {
 			if (opOutput.value < old.value)
@@ -1484,7 +1484,7 @@ namespace simdOps {
 			return old;
 		}
 
-		op_def static functions::indexreduce::IndexValue<T> merge(
+		static functions::indexreduce::IndexValue<T> merge(
 				functions::indexreduce::IndexValue<T> f1,
 				functions::indexreduce::IndexValue<T> f2, T *extraParams) {
 			if (f1.value < f2.value)
@@ -1492,13 +1492,13 @@ namespace simdOps {
 			return f1;
 		}
 
-		op_def static functions::indexreduce::IndexValue<T> postProcess(
+		static functions::indexreduce::IndexValue<T> postProcess(
 				functions::indexreduce::IndexValue<T> reduction, int n, int xOffset,
 				T *dx, int incx, T *extraParams, T *result) {
 			return reduction;
 		}
 
-		op_def static functions::indexreduce::IndexValue<T> op(functions::indexreduce::IndexValue<T> d1,
+		static functions::indexreduce::IndexValue<T> op(functions::indexreduce::IndexValue<T> d1,
 				functions::indexreduce::IndexValue<T> d2, T *extraParams) {
 			return d1;
 		}
@@ -1507,7 +1507,7 @@ namespace simdOps {
 	template<typename T>
 	class SummaryStatsVariance {
 	public:
-		op_def static T getValue(const bool biasCorrected, functions::summarystats::SummaryStatsData<T> val) {
+		static T getValue(const bool biasCorrected, functions::summarystats::SummaryStatsData<T> val) {
 			if (biasCorrected) {
 				T ret = val.varianceBiasCorrected();
 				if (ret < 0)
@@ -1517,7 +1517,7 @@ namespace simdOps {
 			return val.variance();
 		}
 
-		op_def static functions::summarystats::SummaryStatsData<T> op(functions::summarystats::SummaryStatsData<T> d1,T *extraParams) {
+		static functions::summarystats::SummaryStatsData<T> op(functions::summarystats::SummaryStatsData<T> d1,T *extraParams) {
 			return d1;
 		}
 	};
@@ -1525,7 +1525,7 @@ namespace simdOps {
 	template<typename T>
 	class SummaryStatsStandardDeviation {
 	public:
-		op_def static T getValue(const bool biasCorrected, functions::summarystats::SummaryStatsData<T> val) {
+		static T getValue(const bool biasCorrected, functions::summarystats::SummaryStatsData<T> val) {
 			if (biasCorrected) {
 				T ret = val.varianceBiasCorrected();
 				if (ret < 0)
@@ -1536,7 +1536,7 @@ namespace simdOps {
 			return  nd4j::math::nd4j_sqrt(val.variance());
 		}
 
-		op_def static functions::summarystats::SummaryStatsData<T> op(functions::summarystats::SummaryStatsData<T> d1,T *extraParams) {
+		static functions::summarystats::SummaryStatsData<T> op(functions::summarystats::SummaryStatsData<T> d1,T *extraParams) {
 			return d1;
 		}
 	};
