@@ -1788,12 +1788,12 @@ template<typename T, typename OpTypeA, typename OpTypeB>
 		 * PREDICATE
 		 */
 
-		meta_def static T startingValue(const T *input) {
+		op_def static T startingValue(const T *input) {
             return (T) 0.0;
         }
 
 		// scalar, transform, reduce, indexreduce entry
-		meta_def static T op(T d1, T *params) {
+		op_def static T op(T d1, T *params) {
 			/*
 			 * We assume, that params for MetaOp is a set of pointers to actual op A & B extraArgs
 			 */
@@ -1805,7 +1805,7 @@ template<typename T, typename OpTypeA, typename OpTypeB>
 		}
 
 		// PWT, broadcast entry. Predicate can be only scalar, transform
-		meta_def static T op(T d1, T d2, T *params) {
+		op_def static T op(T d1, T d2, T *params) {
 			Nd4jPointer *wrap = reinterpret_cast<Nd4jPointer *> (params);
 			T *paramsA = reinterpret_cast<T *> (wrap[0]);
 			T *paramsB = reinterpret_cast<T *> (wrap[1]);
@@ -1818,7 +1818,7 @@ template<typename T, typename OpTypeA, typename OpTypeB>
 		 */
 
 		// will be called for reduce, reduce3
-		meta_def static T postProcess(T reduction, Nd4jIndex n, T *params) {
+		op_def static T postProcess(T reduction, Nd4jIndex n, T *params) {
 			Nd4jPointer *wrap = reinterpret_cast<Nd4jPointer *> (params);
 			T *paramsA = reinterpret_cast<T *> (wrap[0]);
 			T *paramsB = reinterpret_cast<T *> (wrap[1]);

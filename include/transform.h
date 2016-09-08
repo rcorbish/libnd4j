@@ -124,6 +124,58 @@ namespace functions {
 	}
 
 
+template<typename OpType>
+static __inline__ __device__ void transformCudaGrid(
+			T *dy,
+			int *shapeInfo,
+			T *params,
+			T *result,
+			int *resultShapeInfo,
+			int *allocationPointer, T *reductionPointer, UnifiedSharedMemory *manager) {
+
+		int *xShape = shape::shapeOf(shapeInfo);
+		int *xStride = shape::stride(shapeInfo);
+		char xOrder = shape::order(shapeInfo);
+		char resultOrder = shape::order(resultShapeInfo);
+		int xRank = shape::rank(shapeInfo);
+		int xOffset = shape::offset(shapeInfo);
+
+		int xElementWiseStride = shape::elementWiseStride(shapeInfo);
+		int resultElementWiseStride = shape::elementWiseStride(resultShapeInfo);
+		int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+
+		__shared__ int length;
+		if(threadIdx.x == 0)
+			length = shape::length(shapeInfo);
+		__syncthreads();
+
+		if(xElementWiseStride >= 1 && resultElementWiseStride >= 1 && xOrder == resultOrder) {
+			transformCuda<OpType>(
+					length,
+					dy,
+					xElementWiseStride,
+					params,
+					result,
+					resultElementWiseStride, allocationPointer, reductionPointer, manager);
+		}
+		else {
+			/* equal, positive, non-unit increments. */
+			//long allocSize = sizeof(int) * xRank;
+			//int *xIdx = shape::cuMalloc(manager->getT1ShapeBuffer(), allocSize);
+			int xCoord[MAX_RANK];
+
+#pragma unroll
+			for (Nd4jIndex i = tid; i < length; i+= gridDim.x * blockDim.x) {
+				//int *xIdx = shape::ind2sub(xRank, xShape, i, xIdx);
+				shape::ind2sub(xRank,shape::shapeOf(shapeInfo),i, xCoord);
+				Nd4jIndex xOffset2 = shape::getOffset(xOffset, xShape, xStride, xCoord, xRank);
+				Nd4jIndex resultOffset2 = shape::getOffset(0,xShape,shape::stride(resultShapeInfo),xCoord,xRank);
+				result[resultOffset2] = OpType::op(dy[xOffset2], params);
+			}
+		}
+	}
+
 	/**
 	 * Cuda implementation of transform
 	 * @param dx

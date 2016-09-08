@@ -204,6 +204,68 @@ __device__ static inline void invertedMetaPairwiseShapedGeneric(const int opType
     functions::pairwise_transforms::PairWiseTransform<T>::template transformCuda<OpClass>(dx, xShapeInfo, dy, yShapeInfo, dz, zShapeInfo, paramsPtr, nullptr, nullptr, nullptr);
 };
 
+template<typename T, typename OpClass>
+__device__ static inline void linearMetaShapedGeneric(const int opTypeA, const int opTypeB, T *dx,
+                                                         int *xShapeInfo,
+                                                         T *dz,
+                                                         int *zShapeInfo,
+                                                         int *allocationPointer, T *reductionPointer, T *extraA, T *extraB, T scalarA, T scalarB) {
+    __shared__ T realScalarA;
+    __shared__ T realScalarB;
+    __shared__ Nd4jPointer params[2];
+    __shared__ T *paramsPtr;
+    if (threadIdx.x == 0) {
+        if (opTypeA == 0) {
+            realScalarA = (T) scalarA;
+            params[0] = (Nd4jPointer *) &realScalarA;
+        }
+        else params[0] = (Nd4jPointer *) extraA;
+
+        if (opTypeB == 0) {
+            realScalarB = (T) scalarB;
+            params[1] = (Nd4jPointer *) &realScalarB;
+        }
+        else params[1] = (Nd4jPointer *) extraB;
+
+        paramsPtr = (T *) params;
+    }
+    __syncthreads();
+
+    //functions::transform::Transform<T>::template transformCudaGrid<OpClass>(dx, xShapeInfo, paramsPtr, dz, zShapeInfo, allocationPointer, reductionPointer, nullptr);
+};
+
+template<typename T, typename OpClass>
+__device__ static inline void linearMetaStridedGeneric(const int opTypeA, const int opTypeB, long N, T *dx,
+                                                      int xStride,
+                                                      T *dz,
+                                                      int zStride,
+                                                      int *allocationPointer, T *reductionPointer, T *extraA, T *extraB, T scalarA, T scalarB) {
+    __shared__ T realScalarA;
+    __shared__ T realScalarB;
+    __shared__ Nd4jPointer params[2];
+    __shared__ T *paramsPtr;
+    if (threadIdx.x == 0) {
+        if (opTypeA == 0) {
+            realScalarA = (T) scalarA;
+            params[0] = (Nd4jPointer *) &realScalarA;
+        }
+        else params[0] = (Nd4jPointer *) extraA;
+
+        if (opTypeB == 0) {
+            realScalarB = (T) scalarB;
+            params[1] = (Nd4jPointer *) &realScalarB;
+        }
+        else params[1] = (Nd4jPointer *) extraB;
+
+        paramsPtr = (T *) params;
+    }
+    __syncthreads();
+
+
+    functions::transform::Transform<T>::template transformCuda<OpClass>(N, dx, xStride, paramsPtr, dz, zStride, allocationPointer, reductionPointer, nullptr);
+};
+
+
 
 // kernels set for pairwise + scalar based on stride                                                                                         const int opTypeA, const int opTypeB, long N, T *dx, int xStride, T *dy, int yStride, T *dz, int zStride, T *extraA, T *extraB, T scalarA, T scalarB
 DISPATCH_KERNEL_META(invertedMetaPairwiseStrided_Pairwise_Scalar_, invertedMetaPairwiseStridedGeneric, float, simdOps::InvertedMetaOp, INPUT(const int opTypeA, const int opTypeB, long N, float *dx, int xStride, float *dy, int yStride, float *dz, int zStride, float *extraA, float *extraB, float scalarA, float scalarB), PARAMS(opTypeA, opTypeB, N, dx, xStride, dy, yStride, dz, zStride, extraA, extraB, scalarA, scalarB),  OPS_A(PAIRWISE_TRANSFORM_OPS), OPS_B(SCALAR_OPS))
@@ -214,8 +276,27 @@ DISPATCH_KERNEL_META(invertedMetaPairwiseStrided_Pairwise_Scalar_, invertedMetaP
 DISPATCH_KERNEL_META(invertedMetaPairwiseShaped_Pairwise_Scalar_, invertedMetaPairwiseShapedGeneric, float, simdOps::InvertedMetaOp, INPUT(const int opTypeA, const int opTypeB, long N, float *dx, int *xShapeInfo, float *dy, int *yShapeInfo, float *dz, int *zShapeInfo, float *extraA, float *extraB, float scalarA, float scalarB), PARAMS(opTypeA, opTypeB, N, dx, xShapeInfo, dy, yShapeInfo, dz, zShapeInfo, extraA, extraB, scalarA, scalarB),  OPS_A(PAIRWISE_TRANSFORM_OPS), OPS_B(SCALAR_OPS))
 DISPATCH_KERNEL_META(invertedMetaPairwiseShaped_Pairwise_Scalar_, invertedMetaPairwiseShapedGeneric, double, simdOps::InvertedMetaOp, INPUT(const int opTypeA, const int opTypeB, long N, double *dx, int *xShapeInfo, double *dy, int *yShapeInfo, double *dz, int *zShapeInfo, double *extraA, double *extraB, double scalarA, double scalarB), PARAMS(opTypeA, opTypeB, N, dx, xShapeInfo, dy, yShapeInfo, dz, zShapeInfo, extraA, extraB, scalarA, scalarB),  OPS_A(PAIRWISE_TRANSFORM_OPS), OPS_B(SCALAR_OPS))
 DISPATCH_KERNEL_META(invertedMetaPairwiseShaped_Pairwise_Scalar_, invertedMetaPairwiseShapedGeneric, float16, simdOps::InvertedMetaOp, INPUT(const int opTypeA, const int opTypeB, long N, float16 *dx, int *xShapeInfo, float16 *dy, int *yShapeInfo, float16 *dz, int *zShapeInfo, float16 *extraA, float16 *extraB, float scalarA, float scalarB), PARAMS(opTypeA, opTypeB, N, dx, xShapeInfo, dy, yShapeInfo, dz, zShapeInfo, extraA, extraB, scalarA, scalarB),  OPS_A(PAIRWISE_TRANSFORM_OPS), OPS_B(SCALAR_OPS))
+/*
+// kernels set for transform + transform based on shape
+DISPATCH_KERNEL_META(linearMetaShaped_Transform_Transform_, linearMetaShapedGeneric, float16, simdOps::MetaOp, INPUT(const int opTypeA, const int opTypeB, float16 *dx, int *xShapeInfo, float16 *dz, int *zShapeInfo, int *allocationPointer, float16 *reductionPointer, float16 *extraA, float16 *extraB,  float scalarA, float scalarB), PARAMS(opTypeA, opTypeB, dx, xShapeInfo, dz, zShapeInfo, allocationPointer, reductionPointer, extraA, extraB, scalarA, scalarB),  OPS_A(TRANSFORM_OPS), OPS_B(TRANSFORM_OPS))
+DISPATCH_KERNEL_META(linearMetaShaped_Transform_Transform_, linearMetaShapedGeneric, float, simdOps::MetaOp, INPUT(const int opTypeA, const int opTypeB, float *dx, int *xShapeInfo, float *dz, int *zShapeInfo, int *allocationPointer, float *reductionPointer, float *extraA, float *extraB,  float scalarA, float scalarB), PARAMS(opTypeA, opTypeB, dx, xShapeInfo, dz, zShapeInfo, allocationPointer, reductionPointer, extraA, extraB, scalarA, scalarB),  OPS_A(TRANSFORM_OPS), OPS_B(TRANSFORM_OPS))
+DISPATCH_KERNEL_META(linearMetaShaped_Transform_Transform_, linearMetaShapedGeneric, double, simdOps::MetaOp, INPUT(const int opTypeA, const int opTypeB, double *dx, int *xShapeInfo, double *dz, int *zShapeInfo, int *allocationPointer, double *reductionPointer, double *extraA, double *extraB,  double scalarA, double scalarB), PARAMS(opTypeA, opTypeB, dx, xShapeInfo, dz, zShapeInfo, allocationPointer, reductionPointer, extraA, extraB, scalarA, scalarB),  OPS_A(TRANSFORM_OPS), OPS_B(TRANSFORM_OPS))
 
+// kernels set for transform + scalar based on shape
+DISPATCH_KERNEL_META(linearMetaShaped_Transform_Scalar_, linearMetaShapedGeneric, float16, simdOps::MetaOp, INPUT(const int opTypeA, const int opTypeB, float16 *dx, int *xShapeInfo, float16 *dz, int *zShapeInfo, int *allocationPointer, float16 *reductionPointer, float16 *extraA, float16 *extraB,  float scalarA, float scalarB), PARAMS(opTypeA, opTypeB, dx, xShapeInfo, dz, zShapeInfo, allocationPointer, reductionPointer, extraA, extraB, scalarA, scalarB),  OPS_A(TRANSFORM_OPS), OPS_B(SCALAR_OPS))
+DISPATCH_KERNEL_META(linearMetaShaped_Transform_Scalar_, linearMetaShapedGeneric, float, simdOps::MetaOp, INPUT(const int opTypeA, const int opTypeB, float *dx, int *xShapeInfo, float *dz, int *zShapeInfo, int *allocationPointer, float *reductionPointer, float *extraA, float *extraB,  float scalarA, float scalarB), PARAMS(opTypeA, opTypeB, dx, xShapeInfo, dz, zShapeInfo, allocationPointer, reductionPointer, extraA, extraB, scalarA, scalarB),  OPS_A(TRANSFORM_OPS), OPS_B(SCALAR_OPS))
+DISPATCH_KERNEL_META(linearMetaShaped_Transform_Scalar_, linearMetaShapedGeneric, double, simdOps::MetaOp, INPUT(const int opTypeA, const int opTypeB, double *dx, int *xShapeInfo, double *dz, int *zShapeInfo, int *allocationPointer, double *reductionPointer, double *extraA, double *extraB,  double scalarA, double scalarB), PARAMS(opTypeA, opTypeB, dx, xShapeInfo, dz, zShapeInfo, allocationPointer, reductionPointer, extraA, extraB, scalarA, scalarB),  OPS_A(TRANSFORM_OPS), OPS_B(SCALAR_OPS))
+*/
 
+// kernels set for transform + transform based on stride
+DISPATCH_KERNEL_META(linearMetaStrided_Transform_Transform_, linearMetaStridedGeneric, float16, simdOps::MetaOp, INPUT(const int opTypeA, const int opTypeB, long N, float16 *dx, int xStride, float16 *dz, int zStride, int *allocationPointer, float16 *reductionPointer, float16 *extraA, float16 *extraB,  float scalarA, float scalarB), PARAMS(opTypeA, opTypeB, N, dx,xStride, dz, zStride, allocationPointer, reductionPointer, extraA, extraB, scalarA, scalarB),  OPS_A(TRANSFORM_OPS), OPS_B(TRANSFORM_OPS))
+DISPATCH_KERNEL_META(linearMetaStrided_Transform_Transform_, linearMetaStridedGeneric, float, simdOps::MetaOp, INPUT(const int opTypeA, const int opTypeB, long N, float *dx, int xStride, float *dz, int zStride, int *allocationPointer, float *reductionPointer, float *extraA, float *extraB,  float scalarA, float scalarB), PARAMS(opTypeA, opTypeB, N, dx, xStride, dz, zStride, allocationPointer, reductionPointer, extraA, extraB, scalarA, scalarB),  OPS_A(TRANSFORM_OPS), OPS_B(TRANSFORM_OPS))
+DISPATCH_KERNEL_META(linearMetaStrided_Transform_Transform_, linearMetaStridedGeneric, double, simdOps::MetaOp, INPUT(const int opTypeA, const int opTypeB, long N, double *dx, int xStride, double *dz, int zStride, int *allocationPointer, double *reductionPointer, double *extraA, double *extraB,  double scalarA, double scalarB), PARAMS(opTypeA, opTypeB, N, dx, xStride, dz, zStride, allocationPointer, reductionPointer, extraA, extraB, scalarA, scalarB),  OPS_A(TRANSFORM_OPS), OPS_B(TRANSFORM_OPS))
+
+// kernels set for transform + scalar based on stride
+DISPATCH_KERNEL_META(linearMetaStrided_Transform_Scalar_, linearMetaStridedGeneric, float16, simdOps::MetaOp, INPUT(const int opTypeA, const int opTypeB, long N, float16 *dx, int xStride, float16 *dz, int zStride, int *allocationPointer, float16 *reductionPointer, float16 *extraA, float16 *extraB,  float scalarA, float scalarB), PARAMS(opTypeA, opTypeB, N, dx,xStride, dz, zStride, allocationPointer, reductionPointer, extraA, extraB, scalarA, scalarB),  OPS_A(TRANSFORM_OPS), OPS_B(SCALAR_OPS))
+DISPATCH_KERNEL_META(linearMetaStrided_Transform_Scalar_, linearMetaStridedGeneric, float, simdOps::MetaOp, INPUT(const int opTypeA, const int opTypeB, long N, float *dx, int xStride, float *dz, int zStride, int *allocationPointer, float *reductionPointer, float *extraA, float *extraB,  float scalarA, float scalarB), PARAMS(opTypeA, opTypeB, N, dx, xStride, dz, zStride, allocationPointer, reductionPointer, extraA, extraB, scalarA, scalarB),  OPS_A(TRANSFORM_OPS), OPS_B(SCALAR_OPS))
+DISPATCH_KERNEL_META(linearMetaStrided_Transform_Scalar_, linearMetaStridedGeneric, double, simdOps::MetaOp, INPUT(const int opTypeA, const int opTypeB, long N, double *dx, int xStride, double *dz, int zStride, int *allocationPointer, double *reductionPointer, double *extraA, double *extraB,  double scalarA, double scalarB), PARAMS(opTypeA, opTypeB, N, dx, xStride, dz, zStride, allocationPointer, reductionPointer, extraA, extraB, scalarA, scalarB),  OPS_A(TRANSFORM_OPS), OPS_B(SCALAR_OPS))
 
 
 #endif //LIBND4J_GRID_H
