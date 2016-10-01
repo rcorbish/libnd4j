@@ -557,7 +557,7 @@ template<typename OpType>
                         if (end > n) end = n;
 #pragma omp simd
                         for (Nd4jIndex i = start; i < end; i++) {
-                            result[i] = OpType::op(x[i], scalar, extraParams);
+                            result[i] = x[i] * scalar; //OpType::op(x[i], scalar, extraParams);
                         }
                     }
                 }
