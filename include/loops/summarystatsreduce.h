@@ -10,7 +10,7 @@
 #include <templatemath.h>
 #include <dll.h>
 
-#include <shape.h>
+#include <helpers/shape.h>
 #ifdef __CUDACC__
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -25,7 +25,7 @@
 #include <jni.h>
 #endif
 
-#include <ops.h>
+#include <ops/ops.h>
 #include <op_boilerplate.h>
 
 #define SUMMARY_STATS_OPS \
@@ -516,6 +516,7 @@ template<typename OpType>
 							xShape = shape::shapeOf(xShapeInfo);
 							xStride = shape::stride(xShapeInfo);
 						}
+						__syncthreads();
 
 						int ind2sub[MAX_RANK];
 #pragma unroll
@@ -778,7 +779,6 @@ template<typename OpType>
                             SummaryStatsData<T> comp;
                             comp.initWithValue(x[baseOffset]);
 // FIXME: reduction to be used here
-//#pragma omp simd
                             for (int j = 1; j < tadLength; j++) {
                                 SummaryStatsData<T> comp2;
                                 comp2.initWithValue(x[baseOffset + (tadElementWiseStride * j)]);
@@ -796,7 +796,7 @@ template<typename OpType>
                         int tadLength = shape::length(tad.tadOnlyShapeInfo);
 
 #pragma omp parallel for schedule(guided) default(shared)
-                        for (int r = 0; r < resultLength; r ++) {
+                        for (int r = 0; r < resultLength; r++) {
                             int xCoord[MAX_RANK];
                             int tadOffsetForBlock = tad.tadOffsets[r];
 
@@ -804,7 +804,6 @@ template<typename OpType>
                             comp.initWithValue(x[tadOffsetForBlock]);
 
 // FIXME: reduction should be fixed
-//#pragma omp simd private(xCoord)
                             for (int i = 1; i < tadLength; i ++) {
                                 shape::ind2subC(tadRank, tadShape, i, xCoord);
                                 int xOffset = shape::getOffset(tadOffsetForBlock, tadShape, tadStride, xCoord, tadRank);

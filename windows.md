@@ -19,6 +19,16 @@ Send us a pull request or [file an issue](https://github.com/deeplearning4j/libn
 
 libnd4j and nd4j go hand in hand, and libnd4j is required for two out of the three currently supported backends (nd4j-native and nd4j-cuda). For this reason they should always be rebuild together.
 
+### Additional build arguments
+
+There's few additional arguments for `buildnativeoperations.sh` script you could use:
+
+```bash
+ -a // shortcut for -march/-mtune, i.e. -a native
+ -b release OR -b debug // enables/desables debug builds. release is considered by default
+ -cc // CUDA-only argument, builds only binaries for target GPU architecture. use this for fast builds
+```
+
 ### Building the CPU Backend
 
 Now clone this repository, and in that directory run the following to build the dll for the cpu backend:
@@ -39,7 +49,7 @@ Additionally, you need to open the `mingw64.ini` in your msys64 installation fol
 1. Inside a normal cmd.exe command prompt, run `C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\amd64\vcvars64.bat`
 2. Run `c:\msys64\mingw64.exe` inside that
 3. Change to your libnd4j folder
-4. `./buildnativeoperations.sh -c cuda`
+4. `./buildnativeoperations.sh -c cuda -сс YOUR_DEVICE_ARCH`
 
 This builds the CUDA nd4j.dll.
 
@@ -56,40 +66,49 @@ While still in the `libnd4j` folder, run:
 
 Now leave the libnd4j directory and clone the [nd4j repository](https://github.com/deeplearning4j/nd4j). Run the following to compile nd4j with support for both the native cpu backend as well as the cuda backend:
 
-    mvn clean install -DskipTests -Dmaven.javadoc.skip=true
+```bash
+mvn clean install -DskipTests -Dmaven.javadoc.skip=true
+```
 
 If you don't want the cuda backend, e.g. because you didn't or can't build it, you can skip it:
 
-    mvn clean install -DskipTests -Dmaven.javadoc.skip=true -pl '!org.nd4j:nd4j-cuda-7.5,!org.nd4j:nd4j-cuda-7.5-platform,!org.nd4j:nd4j-tests'
+```bash
+mvn clean install -DskipTests -Dmaven.javadoc.skip=true -pl '!org.nd4j:nd4j-cuda-7.5,!org.nd4j:nd4j-cuda-7.5-platform,!org.nd4j:nd4j-tests'
+```
 
 Please notice the single quotes around the last parameter, if you leave them out or use double quotes you will get an error about `event not found` from your shell. If this doesn't work, make sure you have a current version of maven installed.
 
+Also, if you're going to build DeepLearning4j without CUDA available, you'll have to deeplearning4j-cuda-7.5 (or 8.0) artifact as well:
+
+```bash
+mvn clean install -DskipTests=true -Dmaven.javadoc.skip=true -pl '!org.deeplearning4j:deeplearning4j-cuda-7.5'
+```
 
 ## Using the Native Backend
 
-In order to use your new shiny backends you will have to switch your application to use the version of ND4J that you just compiled and to use the native backend instead of x86.
+In order to use your new shiny backends you will have to switch your application to use the version of ND4J that you just compiled and to use the native backend.
 
-For this you change the version of all your ND4J dependencies to "0.4-rc3.10-SNAPSHOT".
+For this you change the version of all your ND4J dependencies to version you've built, i.e: "0.7.1-SNAPSHOT".
 
 
 ### CPU Backend
 
-Exchange nd4j-x86 for nd4j-native like that:
+Use nd4j-native backend like that:
 
     <dependency>
         <groupId>org.nd4j</groupId>
         <artifactId>nd4j-native</artifactId>
-        <version>0.4-rc3.10-SNAPSHOT</version>
+        <version>0.7.1-SNAPSHOT</version>
     </dependency>
 
 ### CUDA Backend
 
-Exchange nd4j-x86 for nd4j-cuda-7.5 like that:
+Exchange nd4j-native for nd4j-cuda-7.5 (or nd4j-cuda-8.0) like that:
 
     <dependency>
         <groupId>org.nd4j</groupId>
         <artifactId>nd4j-cuda-7.5</artifactId>
-        <version>0.4-rc3.10-SNAPSHOT</version>
+        <version>0.7.1-SNAPSHOT</version>
     </dependency>
 
     

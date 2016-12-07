@@ -1,8 +1,8 @@
 #include <dll.h>
 //#include <string>
-#include <sharedmem.h>
+#include <helpers/sharedmem.h>
 #include <stdio.h>
-#include <shape.h>
+#include <helpers/shape.h>
 #ifndef __CUDACC__
 #include <omp.h>
 #endif
@@ -10,7 +10,7 @@
 #include <helper_cuda.h>
 #include <nd4jmalloc.h>
 #include <pairwise_util.h>
-#include <ops.h>
+#include <ops/ops.h>
 #include <op_boilerplate.h>
 
 #pragma once
@@ -75,7 +75,6 @@ template<typename OpType>
 					numTads = shape::length(xShapeInfo) / tadLength;
 				}
 				__syncthreads();
-				sPartials[threadIdx.x] = OpType::startingValue(dx);
 
 				for (int r = blockIdx.x; r < numTads; r += gridDim.x) {
 					int tadOffsetForBlock = tadOffsets[r];
@@ -86,13 +85,13 @@ template<typename OpType>
 					for (int i = threadIdx.x; i < tadLength; i += blockDim.x) {
 						sPartials[threadIdx.x] = OpType::update(sPartials[threadIdx.x], OpType::op(rX[i * tadEWS], extraParams), extraParams);
 					}
-//					__syncthreads();
+					__syncthreads();
 
 					// aggregate. do NOT reduce for elements > tadLength
 					aggregatePartials<OpType>(sPartials, threadIdx.x, nd4j::math::nd4j_min<int>(blockDim.x, tadLength), extraParams);
 
 
-//					__syncthreads();
+					__syncthreads();
 					if (threadIdx.x == 0) {
 						result[r] = OpType::postProcess(sPartials[threadIdx.x], tadLength, extraParams);
 					}
@@ -481,7 +480,6 @@ template<typename OpType>
 				}
 
 
-				int tadRank = shape::rank(tadOnlyShapeInfo);
 				const int tadLength = shape::tadLength(xShapeInfo, dimension, dimensionLength);
 				int numTads = shape::length(xShapeInfo) / tadLength;
 				int tadEWS = shape::elementWiseStride(tadOnlyShapeInfo);
@@ -499,7 +497,6 @@ template<typename OpType>
 						if (tadEWS == 1) {
 
 // FIXME: proper reduction should be used here
-//#pragma omp simd
 							for (int j = 0; j < tadLength; j++) {
 								start = OpType::update(start, OpType::op(iter[j], extraParams), extraParams);
 
@@ -507,7 +504,6 @@ template<typename OpType>
 						}
 						else {
 // FIXME: proper reduction to be used here
-//#pragma omp simd
 							for (int j = 0; j < tadLength; j++) {
 								start = OpType::update(start, OpType::op(iter[j * tadEWS], extraParams), extraParams);
 							}
@@ -518,6 +514,7 @@ template<typename OpType>
 				else {
 					int *tadShape = shape::shapeOf(tadOnlyShapeInfo);
 					int *tadStride = shape::stride(tadOnlyShapeInfo);
+                    int tadRank = shape::rank(tadOnlyShapeInfo);
 
 #pragma omp  parallel for schedule(guided) num_threads(num_threads) if (num_threads > 1) proc_bind(AFFINITY) default(shared)
 					for (int i = 0; i < resultLength; i++) {
@@ -587,7 +584,6 @@ template<typename OpType>
 						T local = OpType::startingValue(x);
 
 // FIXME: proper reduction to be used here
-// #pragma omp simd
 						for (Nd4jIndex i = 0; i < length; i++) {
 							T curr = OpType::op(x[i], extraParams);
 							local = OpType::update(local, curr, extraParams);
@@ -601,7 +597,7 @@ template<typename OpType>
 					else {
 						T finalVal = startingVal;
 						BlockInformation info(length, ELEMENT_THRESHOLD);
-						T *blocks = new T[info.chunks];
+						T *blocks = new T[info.threads];
 
 #pragma omp parallel num_threads(info.threads) if (info.threads > 1) proc_bind(AFFINITY) default(shared)
 						{
@@ -610,7 +606,7 @@ template<typename OpType>
 								Nd4jIndex newOffset = (i * info.items);
 								const T *chunk = x + newOffset;
 								Nd4jIndex itemsToLoop = info.items;
-								if (newOffset >= length) {
+								if (i * info.items >= length) {
 									break;
 								}
 
@@ -618,9 +614,9 @@ template<typename OpType>
 								if (newOffset + info.items >= length) {
 									itemsToLoop = length - newOffset;
 								}
+
 // FIXME: proper reduction should be used here
-//#pragma omp simd
-								for (Nd4jIndex j = 0; j < itemsToLoop; j++) {
+								for (Nd4jIndex j = 0; j < itemsToLoop && i * info.items + j < length; j++) {
 									T curr = OpType::op(chunk[j], extraParams);
 									local = OpType::update(local, curr, extraParams);
 								}
@@ -631,7 +627,6 @@ template<typename OpType>
 						}
 
 // FIXME: proper reduction should be used here
-//#pragma omp simd
 						for (int i = 0; i < info.threads; i++) {
 							finalVal = OpType::update(finalVal, blocks[i], extraParams);
 						}
@@ -650,7 +645,6 @@ template<typename OpType>
 						T local = OpType::startingValue(x);
 
 // FIXME: proper reduction should be used here
-//#pragma omp simd
 						for (Nd4jIndex i = 0; i < length; i++) {
 							T curr = OpType::op(x[i * xElementWiseStride], extraParams);
 							local = OpType::update(local, curr, extraParams);
@@ -664,7 +658,7 @@ template<typename OpType>
 
 					T finalVal = startingVal;
 					BlockInformation info(length, ELEMENT_THRESHOLD);
-					T *blocks = new T[info.chunks];
+					T *blocks = new T[info.threads];
 
 
 #pragma omp parallel num_threads(info.threads) if (info.threads > 1) proc_bind(AFFINITY) default(shared)
@@ -674,13 +668,11 @@ template<typename OpType>
 							Nd4jIndex newOffset = (i * info.items) * xElementWiseStride;
 							const T *chunk = x + newOffset;
 							Nd4jIndex itemsToLoop = info.items;
-							if (i * info.items > length)
+							if (i * info.items >= length)
 								break;
 
 // FIXME: proper reduction should be used here
-//#pragma omp simd
-
-							for (Nd4jIndex j = 0; j < itemsToLoop; j++) {
+							for (Nd4jIndex j = 0; j < itemsToLoop && i * info.items + j < length; j++) {
 								T curr = OpType::op(chunk[j * xElementWiseStride], extraParams);
 								local = OpType::update(local, curr, extraParams);
 							}
@@ -690,7 +682,6 @@ template<typename OpType>
 					}
 
 // FIXME: proper reduction should be used here
-//#pragma omp simd
 					for (int i = 0; i < info.threads; i++) {
 						finalVal = OpType::update(finalVal, blocks[i], extraParams);
 					}

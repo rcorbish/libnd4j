@@ -5,15 +5,16 @@
 #ifndef LIBND4J_AGGREGATES_H
 #define LIBND4J_AGGREGATES_H
 
-#include <aggregate_ops.h>
-#include <helper_ptrmap.h>
+#include <ops/aggregate_ops.h>
+#include <helpers/helper_ptrmap.h>
 
 #define AGGREGATE_OPS \
         (0, aggregateOps::HierarchicSoftmax) ,\
         (1, aggregateOps::Dot) ,\
         (2, aggregateOps::Axpy) ,\
         (3, aggregateOps::SkipGram) ,\
-        (4, aggregateOps::CBOW)
+        (4, aggregateOps::CBOW) ,\
+        (5, aggregateOps::GEMM)
 
 
 namespace functions {

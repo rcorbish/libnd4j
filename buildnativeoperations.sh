@@ -100,6 +100,12 @@ if [[ -z ${ANDROID_NDK:-} ]]; then
 fi
 
 case "$OS" in
+	linux-armhf)
+	export CMAKE_COMMAND="cmake -D CMAKE_TOOLCHAIN_FILE=$HOME/raspberrypi/pi.cmake"
+	if [ -z "$ARCH" ]; then
+        ARCH="armv7-r"
+    fi
+	;;
     android-arm)
     if [ -z "$ARCH" ]; then
         ARCH="armv7-a"
@@ -124,18 +130,21 @@ case "$OS" in
 	export CC=/usr/bin/gcc-5
     ;;
 
-    macosx)
+    linux*)
+    ;;
+
+    macosx*)
     # Do something under Mac OS X platform
     if [ "$CHIP" == "cuda" ]; then
         export CC=clang
         export CXX=clang++
     else
-        export CC=$(ls /usr/local/bin/gcc-?)
-        export CXX=$(ls /usr/local/bin/g++-?)
+        export CC="$(ls -1 /usr/local/bin/gcc-? | head -n 1)"
+        export CXX="$(ls -1 /usr/local/bin/g++-? | head -n 1)"
     fi
     ;;
 
-    windows)
+    windows*)
     # Do something under Windows NT platform
     if [ "$CHIP" == "cuda" ]; then
         export CMAKE_COMMAND="cmake -G \"NMake Makefiles\""

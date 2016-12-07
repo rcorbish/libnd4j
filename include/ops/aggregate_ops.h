@@ -4,7 +4,7 @@
 #ifndef LIBND4J_AGGREGATE_OPS_H
 #define LIBND4J_AGGREGATE_OPS_H
 
-#include <ops.h>
+#include <ops/ops.h>
 #include <templatemath.h>
 
 #define HS_MAX_EXP 6.0f
@@ -12,6 +12,7 @@
 #ifdef __CUDACC__
 #define aggregate_def __device__ inline static
 #else
+#include <ops/gemm.h>
 #define aggregate_def inline static
 #endif
 /*
@@ -25,6 +26,80 @@
  *
  */
 namespace aggregateOps {
+
+    template<typename T>
+    class GEMM {
+    public:
+#ifdef __CUDACC__
+        aggregate_def void executeAggregateCuda(T **arguments, int numArguments, int **shapeArguments, int numShapeArguments, int *indexArguments, int numIndexArguments, int **intArrays, int numIntArrays, T *realArguments, int numRealArguments) {
+            // no-op
+        }
+#endif
+
+#ifndef __CUDACC__
+        static CBLAS_ORDER  convertOrder(int from) {
+            switch(from) {
+                //'c'
+                case 99:
+                    return CblasRowMajor;
+                    //'C'
+                case 67: return CblasRowMajor;
+                    //'f'
+                case 102: return CblasColMajor;
+                    //'F'
+                case 70: return CblasColMajor;
+                default: return CblasColMajor;
+
+            }
+        }
+
+
+        static CBLAS_TRANSPOSE convertTranspose(int from) {
+            switch(from) {
+                //'t'
+                case 116: return CblasTrans;
+                    //'T'
+                case 84: return CblasTrans;
+                    //'n'
+                case 110: return CblasNoTrans;
+                    //'N'
+                case 78: return CblasNoTrans;
+                    //'c'
+                case 99: return CblasConjTrans;
+                    //'C'
+                case 67: return CblasConjTrans;
+                default: return CblasNoTrans;
+            }
+        }
+#endif
+
+#ifndef __CUDACC__
+        aggregate_def void executeAggregate(T **arguments, int numArguments, int **shapeArguments, int numShapeArguments, int *indexArguments, int numIndexArguments, int **intArrays, int numIntArrays, T *realArguments, int numRealArguments) {
+            int M = indexArguments[0];
+            int N = indexArguments[1];
+            int K = indexArguments[2];
+            int lda = indexArguments[3];
+            int ldb = indexArguments[4];
+            int ldc = indexArguments[5];
+            int TransA = indexArguments[6];
+            int TransB = indexArguments[7];
+            int Order = indexArguments[8];
+
+            T alpha = realArguments[0];
+            T beta = realArguments[1];
+
+            T *A = arguments[0];
+            T *B = arguments[1];
+            T *C = arguments[2];
+
+            nd4j::blas::GEMM<T>::op(convertOrder(Order), convertTranspose(TransA), convertTranspose(TransB),M,N,K,(T) alpha,A,lda,B,ldb,(T) beta,C,ldc);
+        }
+#else
+        aggregate_def void executeAggregate(T **arguments, int numArguments, int **shapeArguments, int numShapeArguments, int *indexArguments, int numIndexArguments, int **intArrays, int numIntArrays, T *realArguments, int numRealArguments) {
+            // stub for nvcc
+        }
+#endif
+    };
 
     /**
      * We don't include this class into ops directly, since it won't be ever used directly,
@@ -63,7 +138,7 @@ namespace aggregateOps {
 
             int idx = (int) ((dot + HS_MAX_EXP) * ((T) expLength / HS_MAX_EXP / 2.0));
 
-            if (idx >= expLength) {
+            if (idx >= expLength || idx < 0) {
                 return;
             }
 
@@ -197,11 +272,11 @@ namespace aggregateOps {
                 if (idx >= expLength)
                     return;
 
+                if (idx < 0)
+                    return;
+
                 g = (code - expTable[idx]) * alpha;
             }
-
-
-            //printf("dot: [%f]; g: [%f]; syn1Neg[0]: [%f]; syn0[0]: [%f]\n", dot, g, syn1Neg[0], syn0[0]);
 
             // axpy1
 #pragma omp simd
@@ -428,25 +503,27 @@ namespace aggregateOps {
 
             unsigned long long next_random = (unsigned long long) realArguments[1];
 
-            if (hsRounds > 0)
+            if (hsRounds > 0) {
                 for (int r = 0; r < hsRounds; r++) {
                     args[1] = arguments[1] + (idxSyn1[r] * vectorLength); // syn1 row
                     idxArgs[2] = codes[r];  // code for row
 
                     //printf("idx syn1: [%i]; code: [%i]\n", idxArgs[1], idxArgs[4]);
 
-                    HierarchicSoftmax<T>::executeAggregate(args, 4, nullptr, 0, idxArgs, 5, nullptr, 0, realArguments, 1);
+                    HierarchicSoftmax<T>::executeAggregate(args, 4, nullptr, 0, idxArgs, 5, nullptr, 0, realArguments,
+                                                           1);
                 }
+            }
 
 
 
             int target = ngStarter;
-            if (ngRounds > 0)
+            if (ngRounds > 0) {
                 for (int r = 0; r < ngRounds + 1; r++) {
                     if (r == 0) {
                         idxArgs[2] = 1;
                     } else {
-                        next_random = next_random * (unsigned long long)25214903917 + 11;
+                        next_random = next_random * (unsigned long long) 25214903917 + 11;
                         target = negTable[(next_random >> 16) % negTableLength];
 
                         if (target <= 0 || target >= vocabSize) target = next_random % (vocabSize - 1) + 1;
@@ -460,6 +537,7 @@ namespace aggregateOps {
 
                     NegativeSampling<T>::executeAggregate(args, 4, nullptr, 0, idxArgs, 5, nullptr, 0, realArguments, 1);
                 }
+            }
 
             if (!isInference) {
 #pragma omp simd
@@ -467,7 +545,6 @@ namespace aggregateOps {
                     syn0[x] += neu1e[x];
                 }
             } else {
-
 #pragma omp simd
                 for (int x = 0; x < vectorLength; x++) {
                     inferenceVector[x] += neu1e[x];
@@ -613,7 +690,7 @@ namespace aggregateOps {
             int ngStarter = indexArguments[5];
             int negTableLength = indexArguments[6];
             int idxSyn0Length = indexArguments[7];
-            int initialIdx = indexArguments[8];
+            //int initialIdx = indexArguments[8];
             int numLabels = indexArguments[9];
             int trainWords = indexArguments[10];
             int isInference = indexArguments[11];

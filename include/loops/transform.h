@@ -10,21 +10,17 @@
 #define TRANSFORM_H_
 #include <vector>
 #include <templatemath.h>
-#include <ops.h>
+#include <ops/ops.h>
+#include <ops/special_ops.h>
 #ifndef __CUDACC__
 #include <omp.h>
 #endif
 #include <pairwise_util.h>
 #include <dll.h>
-#include "reduce.h"
-#include "scalar.h"
-#include "indexreduce.h"
-#include "broadcasting.h"
-#include <shape.h>
-#include <ops.h>
-#include <special_ops.h>
-#include <op_boilerplate.h>
-#include "types/float8.h"
+#include <loops/reduce.h>
+#include <loops/scalar.h>
+#include <loops/indexreduce.h>
+#include <loops/broadcasting.h>
 
 #ifdef __CUDACC__
 #include <cuda.h>
@@ -378,7 +374,7 @@ template<typename OpType>
                              T *extraParams,
                              const int n) {
 
-                int elementsPerThread = n / 16384;
+                int elementsPerThread = n / ELEMENT_THRESHOLD;
                 int num_threads = nd4j::math::nd4j_max<int>(1, elementsPerThread);
                 num_threads = nd4j::math::nd4j_min<int>(num_threads, omp_get_max_threads());
 
@@ -1363,11 +1359,13 @@ __device__ void averagingKernelGeneric(T **dx, T *dz, int n, Nd4jIndex length, b
         }
 
         // div step & write out step
-        T *wdata = dz + baseIdx;
+        if (dz != nullptr) {
+            T *wdata = dz + baseIdx;
 
-        if (baseIdx + threadIdx.x < length) {
-            shmem[threadIdx.x] /= n;
-            wdata[threadIdx.x] = shmem[threadIdx.x];
+            if (baseIdx + threadIdx.x < length) {
+                shmem[threadIdx.x] /= n;
+                wdata[threadIdx.x] = shmem[threadIdx.x];
+            }
         }
 
         if (propagate)
