@@ -130,9 +130,6 @@ case "$OS" in
 	export CC=/usr/bin/gcc-5
     ;;
 
-    linux*)
-    ;;
-
     macosx*)
     # Do something under Mac OS X platform
     if [ "$CHIP" == "cuda" ]; then
